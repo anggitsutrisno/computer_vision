@@ -1,0 +1,22 @@
+{
+  "telegram": {
+    "enabled": true,
+    "bot_token": "8768250988:AAHHNmEOPM6NE348n1JujPy_R0CmomsVHg0",
+    "chat_id": "6189398407",
+    "notify_on_anomaly": true,
+    "notify_on_motion": true,
+    "send_photo": true
+  },
+  "detection": {
+    "default_confidence": 0.45,
+    "camera_index": 0,
+    "motion_sensitivity": 500,
+    "motion_cooldown": 2.0,
+    "anomaly_cooldown": 3.0,
+    "skip_frames": 1
+  },
+  "output": {
+    "base_dir": "output",
+    "auto_screenshot": true
+  }
+}

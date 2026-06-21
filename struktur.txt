@@ -1,0 +1,70 @@
+Folder PATH listing for volume OS
+Volume serial number is 000000C7 1E63:DF0A
+C:.
+¦   .hintrc
+¦   anomaly_detection.py
+¦   config.json
+¦   config.py
+¦   custom_objects.py
+¦   database.py
+¦   data_input.py
+¦   gui.py
+¦   image_detection.py
+¦   image_manipulation.py
+¦   install_modul.py
+¦   main.py
+¦   motion_detection.py
+¦   notifier.py
+¦   README.md
+¦   requirements.txt
+¦   run_module.bat
+¦   run_module.sh
+¦   smart_vision.db
+¦   struktur.txt
+¦   utils.py
+¦   web_app.py
+¦   web_requirements.txt
+¦   window_utils.py
+¦   yolo26m.pt
+¦   yolo26n.pt
+¦   yolo26s.pt
+¦   yolov8m.pt
+¦   yolov8n.pt
+¦   yolov8s.pt
+¦   
++---logs
+¦       anomaly_detection.csv
+¦       motion_detection.csv
+¦       object_detection.csv
+¦       
++---output
+¦   +---anomaly
+¦   +---charts
+¦   +---image_processing
+¦   +---motion
+¦   +---object
+¦   +---screenshots
+¦   +---{object,motion,anomaly,image_processing,charts,screenshots}
++---web
+¦   +---static
+¦   ¦   +---css
+¦   ¦   ¦       style.css
+¦   ¦   ¦       
+¦   ¦   +---img
+¦   ¦   +---js
+¦   ¦           app.js
+¦   ¦           
+¦   +---templates
+¦   ¦       index.html
+¦   ¦       
+¦   +---{templates,static
+¦       +---{css,js,img}}
++---__pycache__
+        config.cpython-314.pyc
+        database.cpython-314.pyc
+        image_manipulation.cpython-314.pyc
+        motion_detection.cpython-314.pyc
+        notifier.cpython-314.pyc
+        utils.cpython-314.pyc
+        window_utils.cpython-314.pyc
+        
