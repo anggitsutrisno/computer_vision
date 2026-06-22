@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smart Vision Analysis System</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="layout">
+
+<!-- ████ SIDEBAR ████████████████████████████████████████████████████████ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">👁‍🗨</div>
+    <h1>Smart Vision<br>Analysis System</h1>
+    <p>OpenCV · YOLO v8 · Flask</p>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">UTAMA</div>
+    <a class="nav-item" data-page="dashboard" data-ac="active">
+      <span class="icon">🏠</span><span class="nav-label">Dashboard</span>
+    </a>
+    <div class="nav-section">MODUL</div>
+    <a class="nav-item" data-page="object" data-ac="active">
+      <span class="icon">📦</span><span class="nav-label">Image Detection</span>
+    </a>
+    <a class="nav-item" data-page="motion" data-ac="active-o">
+      <span class="icon">🏃</span><span class="nav-label">Motion Detection</span>
+    </a>
+    <a class="nav-item" data-page="anomaly" data-ac="active-r">
+      <span class="icon">🚨</span><span class="nav-label">Anomaly Detection</span>
+    </a>
+    <a class="nav-item" data-page="manipulation" data-ac="active-p">
+      <span class="icon">🎨</span><span class="nav-label">Image Manipulation</span>
+    </a>
+    <div class="nav-section">DATA</div>
+    <a class="nav-item" data-page="data" data-ac="active-g">
+      <span class="icon">📊</span><span class="nav-label">Data Management</span>
+    </a>
+    <div class="nav-section">SISTEM</div>
+    <a class="nav-item" data-page="settings" data-ac="active">
+      <span class="icon">⚙️</span><span class="nav-label">Pengaturan</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div>Nerazurra Dev Studio</div>
+    <div id="clock" class="mono" style="color:var(--blue);font-size:.75rem;margin-top:3px"></div>
+  </div>
+</aside>
+
+<!-- ████ MAIN ████████████████████████████████████████████████████████████ -->
+<main class="main">
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-title" id="tb-title">Dashboard</div>
+  <div class="topbar-meta">
+    <span class="chip chip-gray cam-chip">📷 Offline</span>
+    <span class="chip chip-green">🌐 Web</span>
+    <select class="form-select" id="cam-idx" style="width:110px;padding:4px 7px;font-size:.72rem">
+      <option value="0">Kamera 0</option>
+      <option value="1">Kamera 1</option>
+      <option value="2">Kamera 2</option>
+    </select>
+    <button class="btn btn-gray btn-sm" onclick="doScreenshot(this)">📷</button>
+    <button class="btn btn-danger btn-sm" onclick="camStop(this)">⏹ Stop</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  SINGLE VIDEO FEED — satu <img> untuk semua modul (tidak duplikat!)
+  Disembunyikan di dashboard/data/settings, ditampilkan di modul kamera
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="shared-video-wrap" class="hidden" style="display:none">
+  <img id="shared-feed" class="vfeed" src="/video_feed" alt="Video Feed"
+       style="width:100%;display:block;min-height:240px;object-fit:contain;background:#080818"
+       onerror="this.src='/video_feed?t='+Date.now()">
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: DASHBOARD
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-dashboard" class="page">
+  <div class="stat-grid">
+    <div class="stat-card sc-blue">
+      <div class="stat-val" id="stat-obj">0</div>
+      <div class="stat-lbl">📦 Total Objek</div>
+    </div>
+    <div class="stat-card sc-orange">
+      <div class="stat-val" id="stat-mot">0</div>
+      <div class="stat-lbl">🏃 Motion Events</div>
+    </div>
+    <div class="stat-card sc-red">
+      <div class="stat-val" id="stat-ano">0</div>
+      <div class="stat-lbl">🚨 Anomaly Alerts</div>
+    </div>
+    <div class="stat-card sc-purple">
+      <div class="stat-val" id="stat-ses">0</div>
+      <div class="stat-lbl">📡 Sesi Deteksi</div>
+    </div>
+  </div>
+
+  <!-- Quick start -->
+  <div class="card mb-16">
+    <div class="card-title">⚡ MULAI CEPAT</div>
+    <div class="flex gap-8" style="flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="showPage('object');setObjMode('camera');camStart('object',this)">📦 Object Detection</button>
+      <button class="btn btn-orange"  onclick="showPage('motion');setMotMode('camera');camStart('motion',this)" style="background:#7d4800">🏃 Motion Detection</button>
+      <button class="btn btn-danger"  onclick="showPage('anomaly');setAnoMode('camera');camStart('anomaly',this)">🚨 Anomaly Detection</button>
+      <button class="btn btn-purple"  onclick="showPage('manipulation');setManipMode('camera');camStart('manipulation',this)">🎨 Manipulation</button>
+      <button class="btn btn-outline" onclick="camStop(this)">⏹ Stop Semua</button>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+    <div class="card">
+      <div class="card-title">📦 Objek per Hari</div>
+      <div class="chart-wrap"><canvas id="chart-object" height="130"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏃 Motion per Hari</div>
+      <div class="chart-wrap"><canvas id="chart-motion" height="130"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🚨 Anomaly per Hari</div>
+      <div class="chart-wrap"><canvas id="chart-anomaly" height="130"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: OBJECT DETECTION
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-object" class="page hidden">
+  <div class="mode-tabs">
+    <button class="mtab active" onclick="setObjMode('camera',this)">📷 Kamera Live</button>
+    <button class="mtab" onclick="setObjMode('image',this)">🖼️ File Gambar</button>
+    <button class="mtab" onclick="setObjMode('manual',this)">✏️ Input Manual</button>
+  </div>
+
+  <div class="mod-layout">
+    <!-- LEFT -->
+    <div>
+      <!-- Camera mode -->
+      <div id="obj-camera">
+        <div class="video-card">
+          <div class="video-hdr">
+            <h3>📦 Image Detection — YOLO v8</h3>
+            <span class="abadge abadge-ok">● Idle</span>
+          </div>
+          <div class="video-body" id="obj-video-body">
+            <!-- Video di-inject sini oleh JS -->
+          </div>
+          <div class="video-footer">
+            <span>Objek/frame: <b class="tc-blue" id="obj-live-count">0</b></span>
+            <span>Total: <b class="tc-blue" id="obj-total-count">0</b></span>
+            <span class="live-fps tc-muted" style="margin-left:auto"></span>
+          </div>
+        </div>
+        <div class="logbox mt-8" id="obj-log"></div>
+      </div>
+
+      <!-- Upload mode -->
+      <div id="obj-image" class="hidden">
+        <div class="upload-area" id="obj-upload-area">
+          <div class="upload-icon">🖼️</div>
+          <p>Drag & drop gambar atau klik untuk pilih</p>
+          <input type="file" id="obj-file-input" accept="image/*" style="display:none">
+        </div>
+        <div id="obj-result" class="mt-12"></div>
+      </div>
+
+      <!-- Manual mode -->
+      <div id="obj-manual" class="hidden">
+        <div class="man-form">
+          <h3>✏️ Input Data Deteksi Objek Manual</h3>
+          <div class="grid-2">
+            <div class="form-row"><label class="form-label">📅 Tanggal</label><input class="form-input" data-field="date" type="date"></div>
+            <div class="form-row"><label class="form-label">⏰ Waktu</label><input class="form-input" data-field="time" type="time" step="1"></div>
+          </div>
+          <div class="form-row"><label class="form-label">📍 Sumber</label><input class="form-input" data-field="source" placeholder="manual / webcam"></div>
+          <div class="form-row"><label class="form-label">🔢 Jumlah Objek</label><input class="form-input" data-field="total_objects" type="number" min="0" value="1"></div>
+          <div class="form-row"><label class="form-label">🏷️ Nama Objek <span class="tc-muted">(pisah koma)</span></label><input class="form-input" data-field="object_names" placeholder="person, car, ..."></div>
+          <div class="form-row"><label class="form-label">🖼️ Path Gambar <span class="tc-muted">(opsional)</span></label><input class="form-input" data-field="image_path" placeholder="output/object/..."></div>
+          <div id="obj-add-form">
+            <button class="btn btn-primary" onclick="addDataRecord(this)">💾 Simpan ke Database</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="ctrl-panel">
+      <div class="ctrl-sec">
+        <div class="ctrl-title">🤖 MODEL YOLO</div>
+        <select class="form-select" id="obj-model">
+          <option value="yolov8n.pt">YOLOv8 Nano (Cepat)</option>
+          <option value="yolov8s.pt">YOLOv8 Small</option>
+          <option value="yolov8m.pt">YOLOv8 Medium (Akurat)</option>
+
+          <option value="yolo26n.pt">YOLO26 Nano</option>
+          <option value="yolo26s.pt">YOLO26 Small</option>
+          <option value="yolo26m.pt">YOLO26 Medium</option>
+        </select>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">🎯 PARAMETER</div>
+        <div class="srow"><span class="slbl">Confidence:</span>
+          <input type="range" id="obj-conf" min=".1" max=".95" step=".05" value=".45" data-out="obj-conf-v" data-dec="2">
+          <span class="sval" id="obj-conf-v">0.45</span></div>
+        <div class="srow"><span class="slbl">IoU (NMS):</span>
+          <input type="range" id="obj-iou" min=".1" max=".95" step=".05" value=".45" data-out="obj-iou-v" data-dec="2">
+          <span class="sval" id="obj-iou-v">0.45</span></div>
+        <button class="btn btn-gray btn-full btn-sm mt-8" onclick="applyObjParams(this)">✓ Terapkan</button>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">⚙️ KONTROL</div>
+        <button class="btn btn-primary btn-full" onclick="camStart('object',this)">▶ START Kamera</button>
+        <button class="btn btn-danger btn-full"  onclick="camStop(this)">⏹ STOP Kamera</button>
+        <button class="btn btn-blue btn-full"    onclick="doScreenshot(this)">📷 Screenshot</button>
+        <button class="btn btn-gray btn-full"    onclick="showPage('data')">🗄️ Lihat Data</button>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">📈 STATISTIK</div>
+        <div class="mini-stats">
+          <div class="mstat"><div class="mstat-val" id="obj-live-count2">0</div><div class="mstat-lbl">Objek/Frame</div></div>
+          <div class="mstat"><div class="mstat-val" id="obj-total-count2">0</div><div class="mstat-lbl">Total Sesi</div></div>
+        </div>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">📋 LOG</div>
+        <div class="logbox" id="obj-log2" style="height:100px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: MOTION DETECTION
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-motion" class="page hidden">
+  <div class="mode-tabs">
+    <button class="mtab active" onclick="setMotMode('camera')">📷 Kamera Live</button>
+    <button class="mtab"        onclick="setMotMode('manual')">✏️ Input Manual</button>
+  </div>
+  <div class="mod-layout">
+    <div>
+      <div id="mot-camera">
+        <div class="video-card">
+          <div class="video-hdr">
+            <h3>🏃 Motion Detection</h3>
+            <span class="abadge abadge-ok" id="mot-badge">● Normal</span>
+          </div>
+          <div class="video-body" id="mot-video-body"></div>
+          <div class="video-footer">
+            <span>Events: <b class="tc-orange" id="mot-count">0</b></span>
+            <span class="live-fps tc-muted" style="margin-left:auto"></span>
+          </div>
+        </div>
+        <div class="logbox mt-8" id="mot-log"></div>
+      </div>
+
+      <div id="mot-manual" class="hidden">
+        <div class="man-form">
+          <h3>✏️ Input Data Motion Detection Manual</h3>
+          <div class="grid-2">
+            <div class="form-row"><label class="form-label">📅 Tanggal</label><input class="form-input" id="mot-mf-date" type="date"></div>
+            <div class="form-row"><label class="form-label">⏰ Waktu</label><input class="form-input" id="mot-mf-time" type="time" step="1"></div>
+          </div>
+          <div class="form-row"><label class="form-label">📍 Sumber</label><input class="form-input" id="mot-mf-src" placeholder="manual"></div>
+          <div class="form-row"><label class="form-label">🔢 Jumlah Gerakan</label><input class="form-input" id="mot-mf-count" type="number" min="1" value="1"></div>
+          <button class="btn btn-primary" onclick="saveMotManual(this)">💾 Simpan ke Database</button>
+          <div id="mot-mf-status" class="tc-muted mt-8" style="font-size:.78rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-panel">
+      <div class="ctrl-sec">
+        <div class="ctrl-title">⚙️ METODE</div>
+        <select class="form-select mb-12" id="mot-method">
+          <option>MOG2 (Adaptive)</option>
+          <option>KNN Background</option>
+          <option>Frame Difference</option>
+        </select>
+        <div class="srow"><span class="slbl">Sensitif px²:</span>
+          <input type="range" id="mot-sens" min="100" max="8000" step="100" value="800" data-out="mot-sens-v">
+          <span class="sval" id="mot-sens-v">800</span></div>
+        <button class="btn btn-gray btn-full btn-sm mt-8" onclick="applyMotParams(this)">✓ Terapkan</button>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">⚙️ KONTROL</div>
+        <button class="btn btn-primary btn-full" onclick="camStart('motion',this)">▶ START</button>
+        <button class="btn btn-danger btn-full"  onclick="camStop(this)">⏹ STOP</button>
+        <button class="btn btn-gray btn-full"    onclick="resetMotCounter(this)">🔄 Reset Counter</button>
+        <button class="btn btn-gray btn-full"    onclick="showPage('data');switchDataTab('motion')">🗄️ Lihat Data</button>
+      </div>
+      <div class="ctrl-sec">
+        <div class="mini-stats">
+          <div class="mstat"><div class="mstat-val" id="mot-count2">0</div><div class="mstat-lbl">Events</div></div>
+          <div class="mstat"><div class="mstat-val live-fps" style="font-size:.8rem"></div><div class="mstat-lbl">Status</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: ANOMALY DETECTION
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-anomaly" class="page hidden">
+  <div class="mode-tabs">
+    <button class="mtab active" onclick="setAnoMode('camera')">📷 Kamera Live</button>
+    <button class="mtab"        onclick="setAnoMode('manual')">✏️ Input Manual</button>
+  </div>
+  <div class="mod-layout">
+    <div>
+      <div id="ano-camera">
+        <div class="video-card">
+          <div class="video-hdr">
+            <h3>🚨 Anomaly / Intrusion Detection</h3>
+            <span class="abadge abadge-ok" id="ano-badge">✅ Normal</span>
+          </div>
+          <div class="video-body zone-wrap" id="ano-zone-wrap">
+            <div id="ano-video-body" style="position:relative;line-height:0">
+              <!-- Feed img gets mounted here by mountFeed() -->
+            </div>
+            <!-- Canvas absolute over entire zone-wrap, synced in JS -->
+            <canvas id="zone-canvas"></canvas>
+          </div>
+          <div class="video-footer">
+            <span>Zona: <b class="tc-red" id="ano-zone-count">0</b></span>
+            <span>Alerts: <b class="tc-red" id="ano-count">0</b></span>
+            <span class="live-fps tc-muted" style="margin-left:auto"></span>
+          </div>
+        </div>
+        <div class="logbox mt-8" id="ano-log" style="color:#ff9999"></div>
+      </div>
+
+      <div id="ano-manual" class="hidden">
+        <div class="man-form">
+          <h3>✏️ Input Data Anomaly Detection Manual</h3>
+          <div class="grid-2">
+            <div class="form-row"><label class="form-label">📅 Tanggal</label><input class="form-input" id="ano-mf-date" type="date"></div>
+            <div class="form-row"><label class="form-label">⏰ Waktu</label><input class="form-input" id="ano-mf-time" type="time" step="1"></div>
+          </div>
+          <div class="form-row"><label class="form-label">📍 Sumber</label><input class="form-input" id="ano-mf-src" placeholder="manual"></div>
+          <div class="form-row"><label class="form-label">👤 Nama Objek <span class="tc-muted">(pisah koma)</span></label><input class="form-input" id="ano-mf-names" placeholder="person, car ..."></div>
+          <div class="form-row"><label class="form-label">📍 Info Zona</label><input class="form-input" id="ano-mf-area" placeholder="Zone 1"></div>
+          <button class="btn btn-primary" onclick="saveAnoManual(this)">💾 Simpan ke Database</button>
+          <div id="ano-mf-status" class="tc-muted mt-8" style="font-size:.78rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-panel">
+      <div class="ctrl-sec">
+        <div class="ctrl-title">🎯 PARAMETER</div>
+        <div class="srow"><span class="slbl">Confidence:</span>
+          <input type="range" id="ano-conf" min=".1" max=".95" step=".05" value=".45" data-out="ano-conf-v" data-dec="2">
+          <span class="sval" id="ano-conf-v">0.45</span></div>
+        <div class="srow"><span class="slbl">IoU (NMS):</span>
+          <input type="range" id="ano-iou" min=".1" max=".95" step=".05" value=".45" data-out="ano-iou-v" data-dec="2">
+          <span class="sval" id="ano-iou-v">0.45</span></div>
+        <button class="btn btn-gray btn-full btn-sm mt-8" onclick="applyAnoParams(this)">✓ Terapkan</button>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">👥 KELAS DETEKSI</div>
+        <label class="crow"><input type="checkbox" id="ano-person" checked> 👤 Person (Orang)</label>
+        <label class="crow"><input type="checkbox" id="ano-vehicle"> 🚗 Kendaraan</label>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">🖱️ ZONA TERLARANG</div>
+        <button class="btn btn-gray btn-full" id="draw-btn" onclick="toggleDrawZone(this)">✏️ Draw Mode: OFF</button>
+        <button class="btn btn-danger btn-full" onclick="clearZones(this)">🗑️ Hapus Semua Zona</button>
+        <p class="tc-muted mt-8" style="font-size:.68rem">Aktifkan Draw Mode lalu drag di area video untuk membuat zona</p>
+      </div>
+      <div class="ctrl-sec">
+        <div class="ctrl-title">⚙️ KONTROL</div>
+        <button class="btn btn-primary btn-full" onclick="camStart('anomaly',this)">▶ START Kamera</button>
+        <button class="btn btn-danger btn-full"  onclick="camStop(this)">⏹ STOP</button>
+        <button class="btn btn-gray btn-full"    onclick="showPage('data');switchDataTab('anomaly')">🗄️ Lihat Data</button>
+      </div>
+      <div class="ctrl-sec">
+        <div class="mini-stats">
+          <div class="mstat"><div class="mstat-val" id="ano-count2">0</div><div class="mstat-lbl">Alerts</div></div>
+          <div class="mstat"><div class="mstat-val" id="ano-zone-count2">0</div><div class="mstat-lbl">Zona Aktif</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: IMAGE MANIPULATION
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-manipulation" class="page hidden">
+  <div class="mode-tabs">
+    <button class="mtab" onclick="setManipMode('camera')">📷 Kamera Live</button>
+    <button class="mtab active" onclick="setManipMode('file')">🖼️ File Gambar</button>
+    <button class="mtab" onclick="setManipMode('manual')">✏️ Input Manual</button>
+  </div>
+  <div class="mod-layout">
+    <div>
+      <!-- Camera live mode -->
+      <div id="manip-camera" class="hidden">
+        <div class="video-card">
+          <div class="video-hdr"><h3>🎨 Live Filter Preview</h3>
+            <span id="manip-live-filter" class="tc-purple" style="font-size:.75rem">Filter: </span>
+          </div>
+          <div class="video-body" id="manip-video-body"></div>
+          <div class="video-footer">
+            <span class="live-fps tc-muted"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- File mode -->
+      <div id="manip-file">
+        <div class="upload-area" id="manip-upload-area">
+          <div class="upload-icon">🖼️</div>
+          <p>Drag & drop atau klik untuk pilih gambar</p>
+          <input type="file" id="manip-file-input" accept="image/*" style="display:none">
+        </div>
+        <div id="manip-result" class="hidden mt-12">
+          <div class="flex gap-8 mb-12" style="flex-wrap:wrap;align-items:center">
+            <span class="fw7 tc-purple" id="manip-filter-name">-</span>
+            <span class="tc-muted">Orig: <span id="manip-size-orig">-</span></span>
+            <span class="tc-muted">Hasil: <span id="manip-size-res">-</span></span>
+          </div>
+          <div class="compare-row">
+            <div><div class="compare-lbl">Original</div><img id="manip-orig-img" src="" alt="Original"></div>
+            <div><div class="compare-lbl tc-purple">Hasil Filter</div><img id="manip-res-img" src="" alt="Result"></div>
+          </div>
+          <div class="tc-muted mt-8" style="font-size:.68rem">Disimpan: <span id="manip-saved">-</span></div>
+        </div>
+      </div>
+
+      <!-- Manual mode -->
+      <div id="manip-manual" class="hidden">
+        <div class="man-form">
+          <h3>✏️ Catat Proses Image Manipulation</h3>
+          <div class="grid-2">
+            <div class="form-row"><label class="form-label">📅 Tanggal</label><input class="form-input" id="manip-mf-date" type="date"></div>
+            <div class="form-row"><label class="form-label">⏰ Waktu</label><input class="form-input" id="manip-mf-time" type="time" step="1"></div>
+          </div>
+          <div class="form-row"><label class="form-label">🎨 Filter/Operasi</label>
+            <select class="form-select" id="manip-mf-op">
+              <option>grayscale</option><option>blur_gaussian</option><option>blur_median</option>
+              <option>edge_canny</option><option>edge_sobel</option><option>sharpen</option>
+              <option>threshold</option><option>rotate</option><option>flip</option>
+              <option>cartoon</option><option>pencil</option><option>hdr</option>
+            </select>
+          </div>
+          <div class="form-row"><label class="form-label">📝 Catatan <span class="tc-muted">(opsional)</span></label>
+            <input class="form-input" id="manip-mf-note" placeholder="deskripsi proses...">
+          </div>
+          <button class="btn btn-primary" onclick="saveManipManual(this)">💾 Simpan Catatan</button>
+          <div id="manip-mf-status" class="tc-muted mt-8" style="font-size:.78rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: filter picker (scrollable) -->
+    <div class="ctrl-panel" style="overflow-y:auto;max-height:82vh">
+      <div class="ctrl-sec">
+        <div class="ctrl-title">🎨 PILIH FILTER</div>
+
+        <div style="font-size:.58rem;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">COLOR</div>
+        <div class="filter-grid">
+          <button class="fbtn active" data-filter="normal"        onclick="selectFilter('normal',this)">Normal</button>
+          <button class="fbtn"        data-filter="grayscale"     onclick="selectFilter('grayscale',this)">Grayscale</button>
+          <button class="fbtn"        data-filter="invert"        onclick="selectFilter('invert',this)">Invert</button>
+          <button class="fbtn"        data-filter="histeq"        onclick="selectFilter('histeq',this)">Hist EQ</button>
+          <button class="fbtn"        data-filter="clahe"         onclick="selectFilter('clahe',this)">CLAHE</button>
+          <button class="fbtn"        data-filter="colormap"      onclick="selectFilter('colormap',this)">Colormap</button>
+          <button class="fbtn"        data-filter="brightness"    onclick="selectFilter('brightness',this)">Brightness</button>
+        </div>
+
+        <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;text-transform:uppercase;letter-spacing:.06em">BLUR</div>
+        <div class="filter-grid">
+          <button class="fbtn" data-filter="blur_gaussian"  onclick="selectFilter('blur_gaussian',this)">Gaussian</button>
+          <button class="fbtn" data-filter="blur_median"    onclick="selectFilter('blur_median',this)">Median</button>
+          <button class="fbtn" data-filter="blur_bilateral" onclick="selectFilter('blur_bilateral',this)">Bilateral</button>
+          <button class="fbtn" data-filter="denoise"        onclick="selectFilter('denoise',this)">Denoise</button>
+        </div>
+
+        <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;text-transform:uppercase;letter-spacing:.06em">EDGE & SHARPEN</div>
+        <div class="filter-grid">
+          <button class="fbtn" data-filter="edge_canny"    onclick="selectFilter('edge_canny',this)">Canny</button>
+          <button class="fbtn" data-filter="edge_sobel"    onclick="selectFilter('edge_sobel',this)">Sobel</button>
+          <button class="fbtn" data-filter="edge_laplacian"onclick="selectFilter('edge_laplacian',this)">Laplacian</button>
+          <button class="fbtn" data-filter="sharpen"       onclick="selectFilter('sharpen',this)">Sharpen</button>
+          <button class="fbtn" data-filter="emboss"        onclick="selectFilter('emboss',this)">Emboss</button>
+        </div>
+
+        <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;text-transform:uppercase;letter-spacing:.06em">THRESHOLD</div>
+        <div class="filter-grid">
+          <button class="fbtn" data-filter="threshold"       onclick="selectFilter('threshold',this)">Threshold</button>
+          <button class="fbtn" data-filter="adaptive_thresh" onclick="selectFilter('adaptive_thresh',this)">Adaptive</button>
+          <button class="fbtn" data-filter="morph"           onclick="selectFilter('morph',this)">Morphology</button>
+        </div>
+
+        <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;text-transform:uppercase;letter-spacing:.06em">TRANSFORM</div>
+        <div class="filter-grid">
+          <button class="fbtn" data-filter="rotate" onclick="selectFilter('rotate',this)">Rotate 90°</button>
+          <button class="fbtn" data-filter="flip"   onclick="selectFilter('flip',this)">Flip H</button>
+        </div>
+
+        <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;text-transform:uppercase;letter-spacing:.06em">EFEK KREATIF</div>
+        <div class="filter-grid">
+          <button class="fbtn" data-filter="cartoon" onclick="selectFilter('cartoon',this)">Cartoon</button>
+          <button class="fbtn" data-filter="pencil"  onclick="selectFilter('pencil',this)">Pencil</button>
+          <button class="fbtn" data-filter="hdr"     onclick="selectFilter('hdr',this)">HDR</button>
+          <button class="fbtn" data-filter="vignette"onclick="selectFilter('vignette',this)">Vignette</button>
+        </div>
+      </div>
+<div class="ctrl-sec">
+  <div class="ctrl-title">⚙️ AKSI</div>
+
+  <button class="btn btn-primary btn-full"
+          onclick="camStart('manipulation',this)">
+      ▶ START Kamera
+  </button>
+
+  <button class="btn btn-purple btn-full"
+          onclick="applyManipFile(this)">
+      ▶ Terapkan ke File
+  </button>
+
+  <button class="btn btn-danger btn-full"
+          onclick="camStop(this)">
+      ⏹ Stop Kamera
+  </button>
+</div>
+</div> <!-- ctrl-panel -->
+</div> <!-- mod-layout -->
+</div> <!-- pg-manipulation -->
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: DATA MANAGEMENT
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-data" class="page hidden">
+  <!-- Module tabs -->
+  <div class="mode-tabs mb-12" style="max-width:360px">
+    <button class="mtab dtab active" data-mod="object" onclick="switchDataTab('object')">📦 Object</button>
+    <button class="mtab dtab" data-mod="motion" onclick="switchDataTab('motion')">🏃 Motion</button>
+    <button class="mtab dtab" data-mod="anomaly" onclick="switchDataTab('anomaly')">🚨 Anomaly</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="card mb-12">
+    <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
+      <input class="form-input" id="data-search" placeholder="🔍 Cari..." style="width:180px"
+             oninput="loadTable(dataModule)">
+      <input class="form-input" id="data-date" type="date" style="width:145px"
+             onchange="loadTable(dataModule)">
+      <span class="tc-muted" id="data-total">—</span>
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-gray btn-sm" onclick="loadTable(dataModule)">🔄</button>
+        <button class="btn btn-blue btn-sm" id="import-csv-btn">📥 Import CSV</button>
+        <input type="file" id="import-csv-input" accept=".csv" style="display:none">
+        <button class="btn btn-gray btn-sm" onclick="exportCSV()">📤 Export</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAllData(this)">🗑️ Hapus Semua</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap mb-12">
+    <table>
+      <thead><tr id="data-thead"></tr></thead>
+      <tbody id="data-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="flex gap-8" style="align-items:center">
+    <button class="btn btn-gray btn-sm" id="data-prev" onclick="prevPage()">◀ Prev</button>
+    <span class="tc-muted" id="data-pg-info">Hal 1/1</span>
+    <button class="btn btn-gray btn-sm" id="data-next" onclick="nextPage()">Next ▶</button>
+  </div>
+
+  <!-- Add form -->
+  <div class="card mt-12">
+    <div class="card-title">➕ TAMBAH RECORD</div>
+    <div id="data-add-form">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+        <div class="form-row"><label class="form-label">Tanggal</label><input class="form-input" data-field="date" type="date"></div>
+        <div class="form-row"><label class="form-label">Waktu</label><input class="form-input" data-field="time" type="time" step="1"></div>
+        <div class="form-row"><label class="form-label">Sumber</label><input class="form-input" data-field="source" placeholder="manual"></div>
+        <div class="form-row"><label class="form-label">Count</label><input class="form-input" data-field="total_objects" type="number" value="1"></div>
+        <div class="form-row"><label class="form-label">Nama/Info</label><input class="form-input" data-field="object_names" placeholder="person, ..."></div>
+        <div class="form-row"><label class="form-label">Path Gambar</label><input class="form-input" data-field="image_path" placeholder="opsional"></div>
+      </div>
+      <button class="btn btn-primary btn-sm mt-8" onclick="addDataRecord(this)">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+  PAGE: SETTINGS
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="pg-settings" class="page hidden">
+  <div class="settings-max">
+    <div class="card mb-20">
+      <div class="card-title">📱 TELEGRAM BOT NOTIFICATION</div>
+      <div class="info-box">
+        <div class="info-box-title">💡 Cara Mendapatkan Bot Token</div>
+        <p>1. Buka Telegram → cari <strong>@BotFather</strong><br>
+           2. Ketik <code>/newbot</code> → ikuti instruksi → salin Token<br>
+           3. Mulai chat dengan bot kamu<br>
+           4. Buka <code>api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> untuk Chat ID</p>
+      </div>
+      <label class="crow mb-12" style="font-size:.88rem;font-weight:600">
+        <input type="checkbox" id="tg-enabled"> &nbsp; Aktifkan Notifikasi Telegram
+      </label>
+      <div class="form-row"><label class="form-label">🔑 Bot Token</label>
+        <input class="form-input" id="tg-token" type="password" placeholder="123456789:ABCDefGhIJK..."></div>
+      <div class="form-row"><label class="form-label">💬 Chat ID</label>
+        <input class="form-input" id="tg-chat" placeholder="-100123456789"></div>
+      <hr class="div">
+      <div class="card-title">KIRIM SAAT:</div>
+      <label class="crow"><input type="checkbox" id="tg-anomaly" checked> 🚨 Anomaly / Intrusion</label>
+      <label class="crow"><input type="checkbox" id="tg-motion"> 🏃 Motion terdeteksi</label>
+      <label class="crow"><input type="checkbox" id="tg-photo" checked> 📷 Sertakan foto</label>
+      <hr class="div">
+      <div class="flex gap-8" style="flex-wrap:wrap">
+        <button class="btn btn-blue" id="tg-test-btn" onclick="testTelegram(this)">🧪 Test Koneksi</button>
+        <button class="btn btn-primary" onclick="saveTgSettings(this)">💾 Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main><!-- /main -->
+</div><!-- /layout -->
+
+<div id="toast-ct"></div>
+<script src="/static/js/app.js"></script>
+<script>
+// ── Mount video feed ke container modul yang aktif ──────────────────────────
+// Kita punya SATU <img> yang dipindahkan ke modul yang aktif
+// Ini menghindari multiple connection ke /video_feed
+
+const feedImg = document.createElement('img');
+feedImg.id    = 'shared-feed';
+feedImg.className = 'vfeed';
+feedImg.src   = '/video_feed';
+feedImg.alt   = 'Video Feed';
+feedImg.style = 'width:100%;display:block;min-height:240px;object-fit:contain;background:#080818';
+
+const videoSlots = {
+  object:      document.getElementById('obj-video-body'),
+  motion:      document.getElementById('mot-video-body'),
+  anomaly:     document.getElementById('ano-video-body'),
+  manipulation:document.getElementById('manip-video-body'),
+};
+
+function mountFeed(module) {
+  const slot = videoSlots[module];
+  if (!slot) return;
+  // Kosongkan slot lain
+  Object.values(videoSlots).forEach(s => { if(s && s !== slot) s.innerHTML = ''; });
+  if (!slot.contains(feedImg)) {
+    slot.appendChild(feedImg);
+  }
+  // Reconnect stream
+  feedImg.src = '/video_feed?t=' + Date.now();
+
+  // Setelah feed terpasang, sync zone canvas
+  if (module === 'anomaly') {
+    // Dispatch event agar initZoneCanvas bisa sync
+    feedImg.onload = () => {
+      document.dispatchEvent(new Event('feedMounted'));
+      syncZoneCanvas();
+    };
+    // Fallback timeout jika onload tidak trigger (stream MJPEG)
+    setTimeout(() => {
+      document.dispatchEvent(new Event('feedMounted'));
+      syncZoneCanvas();
+    }, 400);
+    setTimeout(syncZoneCanvas, 900);
+    setTimeout(syncZoneCanvas, 1500);
+  }
+}
+
+// Override camStart untuk juga mount feed
+const _origCamStart = camStart;
+window.camStart = async function(module, btnEl) {
+  mountFeed(module);
+  await _origCamStart(module, btnEl);
+};
+
+// Override setMode functions untuk auto-mount
+const _origSetObjMode = setObjMode;
+window.setObjMode = function(mode, el) {
+  _origSetObjMode(mode, el);
+  if (mode === 'camera') mountFeed('object');
+};
+const _origSetMotMode = setMotMode;
+window.setMotMode = function(mode) {
+  _origSetMotMode(mode);
+  if (mode === 'camera') mountFeed('motion');
+};
+const _origSetAnoMode = setAnoMode;
+window.setAnoMode = function(mode) {
+  _origSetAnoMode(mode);
+  if (mode === 'camera') mountFeed('anomaly');
+};
+const _origSetManipMode = setManipMode;
+window.setManipMode = function(mode) {
+  _origSetManipMode(mode);
+  if (mode === 'camera') mountFeed('manipulation');
+};
+
+// Sync duplicate stat displays
+const syncIds = [
+  ['obj-live-count','obj-live-count2'],
+  ['obj-total-count','obj-total-count2'],
+  ['mot-count','mot-count2'],
+  ['ano-count','ano-count2'],
+  ['ano-zone-count','ano-zone-count2'],
+];
+setInterval(() => {
+  syncIds.forEach(([src,dst]) => {
+    const a=document.getElementById(src), b=document.getElementById(dst);
+    if(a&&b) b.textContent=a.textContent;
+  });
+}, 500);
+</script>
+</body>
+</html>
